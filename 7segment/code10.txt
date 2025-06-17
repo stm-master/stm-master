@@ -1,0 +1,48 @@
+const char pins[10][7] = {
+
+    {0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 1, 1, 1, 1},
+    {0, 0, 1, 0, 0, 1, 0},
+    {0, 0, 0, 0, 1, 1, 0},
+    {1, 0, 0, 1, 1, 0, 0},
+    {0, 1, 0, 0, 1, 0, 0},
+    {0, 1, 0, 0, 0, 0, 0},
+    {0, 0, 0, 1, 1, 1, 1},
+    {0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 1, 0, 0}
+};
+unsigned short counter = 0;
+void display(unsigned int digit) {
+    GPIOB_ODR.B0 = pins[digit][0];//a
+    GPIOB_ODR.B1 = pins[digit][1];//b
+    GPIOB_ODR.B2 = pins[digit][2];//c
+    GPIOB_ODR.B3 =pins[digit][3];//d
+    GPIOB_ODR.B4 = pins[digit][4];//e
+    GPIOB_ODR.B5 = pins[digit][5];//f
+    GPIOB_ODR.B6 = pins[digit][6];//g
+}
+
+void main() {
+
+    GPIO_Config(&GPIOB_BASE,
+                _GPIO_PINMASK_0 | _GPIO_PINMASK_1 | _GPIO_PINMASK_2 |
+                _GPIO_PINMASK_3 | _GPIO_PINMASK_4 | _GPIO_PINMASK_5 |
+                _GPIO_PINMASK_6,
+                _GPIO_CFG_MODE_OUTPUT | _GPIO_CFG_SPEED_MAX | _GPIO_CFG_OTYPE_PP);
+
+    GPIO_Config(&GPIOA_BASE, _GPIO_PINMASK_0, _GPIO_CFG_MODE_INPUT | _GPIO_CFG_PULL_DOWN);
+
+    while (1) {
+
+            Delay_ms(20);
+            if (GPIOA_IDR.B0==0) {
+                counter++;
+                if (counter > 9) counter = 0;
+
+                display(counter);
+
+                while (GPIOA_IDR.B0==0);
+            }
+
+    }
+}
