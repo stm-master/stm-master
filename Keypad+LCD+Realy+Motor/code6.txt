@@ -1,0 +1,106 @@
+// LCD Pins (Port B)
+sbit LCD_RS at GPIOB_ODR.B1;
+sbit LCD_EN at GPIOB_ODR.B2;
+sbit LCD_D4 at GPIOB_ODR.B12;
+sbit LCD_D5 at GPIOB_ODR.B13;
+sbit LCD_D6 at GPIOB_ODR.B14;
+sbit LCD_D7 at GPIOB_ODR.B15;
+
+// Keypad Layout
+char keypad[4][3] = {
+    {'1','2','3'},
+    {'4','5','6'},
+    {'7','8','9'},
+    {'*','0','#'}
+};
+
+// Globals
+char entered[5] = "";
+char correct[5] = "1234";
+char key = 0;
+char lastKey = 0;
+int index = 0;
+
+// Keypad Scan Function
+char scan_keypad() {
+    int row, col;
+    unsigned int row_pins[4] = {0, 1, 2, 3};     // PA0–PA3
+    unsigned int col_pins[3] = {4, 5, 6};        // PA4–PA6
+
+    // Set rows as output, columns as input with pull-up
+    GPIO_Digital_Output(&GPIOA_BASE, _GPIO_PINMASK_0 | _GPIO_PINMASK_1 | _GPIO_PINMASK_2 | _GPIO_PINMASK_3);
+    GPIO_Config(&GPIOA_BASE,
+                _GPIO_PINMASK_4 | _GPIO_PINMASK_5 | _GPIO_PINMASK_6,
+                _GPIO_CFG_MODE_INPUT | _GPIO_CFG_PULL_UP);
+
+    for (row = 0; row < 4; row++) {
+        // Set all rows HIGH first
+        GPIOA_ODR |= _GPIO_PINMASK_0 | _GPIO_PINMASK_1 | _GPIO_PINMASK_2 | _GPIO_PINMASK_3;
+
+        // Drive one row LOW
+        GPIOA_ODR &= ~(1 << row_pins[row]);
+        Delay_ms(2);  // short settling delay
+
+        for (col = 0; col < 3; col++) {
+            if ((GPIOA_IDR & (1 << col_pins[col])) == 0) {
+                // Wait for release
+                while ((GPIOA_IDR & (1 << col_pins[col])) == 0);
+                Delay_ms(20); // debounce
+                return keypad[row][col];
+            }
+        }
+    }
+
+    return 0;  // no key pressed
+}
+void main() {
+    // Init LCD GPIOs
+    GPIO_Digital_Output(&GPIOB_BASE, _GPIO_PINMASK_1 | _GPIO_PINMASK_2 |_GPIO_PINMASK_4|
+                                        _GPIO_PINMASK_12 | _GPIO_PINMASK_13 |
+                                        _GPIO_PINMASK_14 | _GPIO_PINMASK_15);
+//    GPIO_Config(&GPIOB_BASE,
+// _GPIO_PINMASK_4 ,
+// _GPIO_CFG_MODE_OUTPUT | _GPIO_CFG_SPEED_MAX | _GPIO_CFG_OTYPE_PP);
+
+
+    Lcd_Init();
+    Lcd_Cmd(_LCD_CLEAR);
+    Lcd_Cmd(_LCD_CURSOR_OFF);
+
+    while (1) {
+        key = scan_keypad();
+
+        if (key != 0 && key != lastKey) {
+            lastKey = key;
+
+            if (key >= '0' && key <= '9') {
+                if (index < 4) {
+                    entered[index++] = key;
+                    entered[index] = '\0';
+                    Lcd_Out(1, 1, "Pass:");
+                    Lcd_Out(1, 6, entered);
+                }
+            } else if (key == '#') {
+                if (strcmp(entered, correct) == 0) {
+                    Lcd_Out(2, 1, "Authorized     ");
+                    GPIOB_ODR.B4=1;
+                      Delay_ms(2000);
+                      GPIOB_ODR.B4=0;}
+                else
+                    Lcd_Out(2, 1, "Not Authorized");
+
+                Delay_ms(2000);
+                Lcd_Cmd(_LCD_CLEAR);
+                index = 0;
+                entered[0] = '\0';
+            } else if (key == '*') {
+                index = 0;
+                entered[0] = '\0';
+                Lcd_Cmd(_LCD_CLEAR);
+            }
+        }
+
+        if (key == 0)
+            lastKey = 0; // reset to allow re-press
+    }
+}

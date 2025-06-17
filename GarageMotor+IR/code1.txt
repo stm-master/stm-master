@@ -1,0 +1,55 @@
+// Manual ADC register access
+#define RCC_APB2ENR (*(volatile unsigned long *)0x40021018)
+#define ADC1_CR2    (*(volatile unsigned long *)0x40012408)
+#define ADC1_SR     (*(volatile unsigned long *)0x40012400)
+#define ADC1_DR     (*(volatile unsigned long *)0x4001244C)
+
+// Motor control pins: connected to ULN2003A IN1 and IN2
+sbit IN1 at GPIOB_ODR.B0;
+sbit IN2 at GPIOB_ODR.B1;
+
+unsigned int adc_value;
+
+// Manual ADC Initialization
+void ADC1_Manual_Init() {
+    RCC_APB2ENR |= (1 << 2);  // Enable GPIOA
+    RCC_APB2ENR |= (1 << 9);  // Enable ADC1
+
+    GPIO_Config(&GPIOA_BASE, _GPIO_PINMASK_0, _GPIO_CFG_MODE_ANALOG); // PA0 as analog
+
+    ADC1_CR2 |= (1 << 0);     // ADC ON
+    ADC1_CR2 |= (1 << 1);     // Continuous mode
+    ADC1_CR2 |= (1 << 20);    // Calibration
+    Delay_ms(10);             // Wait a bit
+}
+
+// Manual ADC Read from PA0 (Channel 0)
+unsigned int ADC1_Manual_Read() {
+    ADC1_CR2 |= (1 << 22);                  // Start conversion
+    while (!(ADC1_SR & (1 << 1)));          // Wait for EOC flag
+    return ADC1_DR;                         // Read result
+}
+
+void main() {
+    // Motor control pins as output
+    GPIO_Digital_Output(&GPIOB_BASE, _GPIO_PINMASK_0 | _GPIO_PINMASK_1);
+    IN1 = IN2 = 0;
+
+    ADC1_Manual_Init(); // Start ADC
+
+    while(1) {
+        adc_value = ADC1_Manual_Read();
+
+        if (adc_value < 2000) {
+            // Object detected — open door
+            IN1 = 1;
+            IN2 = 0;
+        } else {
+            // No object — close door
+            IN1 = 0;
+            IN2 = 1;
+        }
+
+        Delay_ms(100);
+    }
+}

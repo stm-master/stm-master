@@ -1,0 +1,65 @@
+// HC-SR04 Pins
+sbit TRIG at GPIOA_ODR.B0;     // PA0 - Trigger
+sbit ECHO at GPIOA_IDR.B1;     // PA1 - Echo
+
+// Variables
+unsigned int time_us;
+float distance_cm;
+char txt[16];
+
+// Send 10us pulse
+void trigger_pulse() {
+    TRIG = 1;
+    Delay_us(10);
+    TRIG = 0;
+}
+
+// Measure echo duration in microseconds
+unsigned int measure_echo_time() {
+    unsigned int count = 0;
+
+    // Wait for ECHO to go HIGH
+    while (!ECHO);  // Might block here if no object
+
+    // Measure how long ECHO stays HIGH
+    while (ECHO && count < 60000) {  // timeout ~60ms
+        Delay_us(1);
+        count++;
+    }
+
+    return count;
+}
+
+void main() {
+    // Initialize pins
+    GPIO_Digital_Output(&GPIOA_BASE, _GPIO_PINMASK_0);  // PA0: Trigger
+    GPIO_Digital_Input(&GPIOA_BASE, _GPIO_PINMASK_1);   // PA1: Echo
+
+    // Initialize UART1 at 9600 baud (TX = PA9)
+    UART1_Init(9600);
+    Delay_ms(100);
+
+    UART1_Write_Text("Ultrasonic Distance Meter\r\n");
+
+    while (1) {
+
+        trigger_pulse();
+
+        time_us = measure_echo_time();
+
+
+
+        // Calculate distance (cm)
+        distance_cm = (time_us * 0.0343) / 2.0;
+
+        // Format float using FloatToStr (more stable than sprintf)
+        FloatToStr(distance_cm, txt);
+        txt[5] = '\0';  // Truncate to 2 decimals
+
+        UART1_Write_Text("Distance: ");
+        UART1_Write_Text(txt);
+        UART1_Write_Text(" cm\r\n");
+
+        Delay_ms(500);
+    }
+}

@@ -1,0 +1,51 @@
+// GPIO Pin Mapping
+sbit IN1 at GPIOB_ODR.B0;   // Coil A1
+sbit IN2 at GPIOB_ODR.B1;   // Coil A2
+sbit IN3 at GPIOB_ODR.B2;  // Coil B1
+sbit IN4 at GPIOB_ODR.B3;  // Coil B2
+
+// Initialize GPIO pins as output
+void Stepper_Init() {
+    GPIO_Digital_Output(&GPIOB_BASE, _GPIO_PINMASK_0 | _GPIO_PINMASK_1 |
+                                       _GPIO_PINMASK_2 | _GPIO_PINMASK_3);
+    // Turn off all coils
+    IN1 = IN2 = IN3 = IN4 = 0;
+}
+
+// Apply one step based on the current index
+void Stepper_Step(int stepIndex) {
+    switch(stepIndex) {
+        case 0: IN1 = 1; IN2 = 0; IN3 = 1; IN4 = 0; break; // Step 1
+        case 1: IN1 = 0; IN2 = 1; IN3 = 1; IN4 = 0; break; // Step 2
+        case 2: IN1 = 0; IN2 = 1; IN3 = 0; IN4 = 1; break; // Step 3
+        case 3: IN1 = 1; IN2 = 0; IN3 = 0; IN4 = 1; break; // Step 4
+    }
+}
+
+// Rotate motor by a number of steps (+ve = CW, -ve = CCW)
+void Stepper_Rotate(int steps, int delay_ms) {
+    int i, stepIndex = 0;
+    int direction = (steps > 0) ? 1 : -1;
+    if (steps < 0) steps = -steps;
+
+
+    for(i = 0; i < steps; i++) {
+        stepIndex = (stepIndex + direction + 4) % 4;
+        Stepper_Step(stepIndex);
+        Delay_ms(1000);
+    }
+}
+
+void main() {
+    Stepper_Init();
+
+    while(1) {
+        // Rotate 100 steps clockwise
+        Stepper_Rotate(100, 5);
+        Delay_ms(1000);
+
+        // Rotate 100 steps counter-clockwise
+        Stepper_Rotate(-100, 5);
+        Delay_ms(1000);
+    }
+}

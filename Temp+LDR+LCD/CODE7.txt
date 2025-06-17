@@ -1,0 +1,71 @@
+// LCD Pins
+sbit LCD_RS at GPIOB_ODR.B1;
+sbit LCD_EN at GPIOB_ODR.B2;
+sbit LCD_D4 at GPIOB_ODR.B12;
+sbit LCD_D5 at GPIOB_ODR.B13;
+sbit LCD_D6 at GPIOB_ODR.B14;
+sbit LCD_D7 at GPIOB_ODR.B15;
+
+
+// Global
+unsigned char dht[5];
+char text[16];
+unsigned int light;
+unsigned int adc_temp;
+float temperature,light2;
+
+
+
+
+
+void ADC_Manual_Init() {
+    RCC_APB2ENR |= (1 << 2);
+    RCC_APB2ENR |= (1 << 9);
+     GPIOA_CRL &= ~(0xF << 0);
+    GPIOA_CRL |=  (0x0 << 0);
+    GPIOA_CRL &= ~(0xF << 16);
+    GPIOA_CRL |=  (0x0 << 16);
+    ADC1_CR2 |= (1 << 0);
+    ADC1_CR2 |= (1 << 1);
+    ADC1_CR2 |= (1 << 20);
+}
+
+unsigned int ADC_Read_channel(unsigned int channel) {
+    ADC1_SQR3 = channel;
+    ADC1_CR2 |= (1 << 22);
+    while (!(ADC1_SR & (1 << 1)));
+    return ADC1_DR;
+}
+
+void main() {
+
+
+    ADC_Manual_Init();
+    Lcd_Init();
+    Delay_ms(100);
+    Lcd_Cmd(_LCD_CLEAR);
+    Lcd_Cmd(_LCD_CURSOR_OFF);
+
+    while(1) {
+        Lcd_Cmd(_LCD_CLEAR);
+         adc_temp=ADC_Read_channel(0);
+         temperature=(adc_temp*5)/4095.0/0.01;
+          floatToStr (temperature,text);
+          Lcd_Out(1, 1, "temp:");
+        Lcd_Out(1, 6, text);
+        Lcd_chr(1, 13, 223);
+        Lcd_chr(1, 14, 'c');
+
+
+
+
+        // Read light (PA4)
+        light = ADC_Read_channel(4);
+         light2=(light*5)/4095.0/0.01;
+        IntToStr(light2, text);
+        Lcd_Out(2, 1, "Light:");
+        Lcd_Out(2, 8, text);
+
+        Delay_ms(2000);
+    }
+}
