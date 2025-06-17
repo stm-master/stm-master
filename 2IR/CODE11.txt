@@ -1,0 +1,73 @@
+// LCD pin configuration / output pins
+sbit LCD_RS at GPIOA_ODR.B1;
+sbit LCD_EN at GPIOA_ODR.B2;
+sbit LCD_D4 at GPIOB_ODR.B0;
+sbit LCD_D5 at GPIOB_ODR.B1;
+sbit LCD_D6 at GPIOB_ODR.B10;
+sbit LCD_D7 at GPIOB_ODR.B11;
+
+// IR Sensor Inputs
+sbit IR_IN at GPIOA_IDR.B3;   // PA3 - IR1 (Entry)
+sbit IR_OUT at GPIOA_IDR.B4;  // PA4 - IR2 (Exit)
+
+unsigned int count = 0;
+char txt[7];
+
+// Edge detection flags
+unsigned short prevIR_IN;
+unsigned short prevIR_OUT;
+
+void delay_ms(unsigned int ms) {
+    while(ms--) Delay_ms(1);
+}
+
+void main() {
+    GPIO_Digital_Input(&GPIOA_BASE, _GPIO_PINMASK_3 | _GPIO_PINMASK_4);  // IR sensors
+    GPIO_Digital_Output(&GPIOA_BASE, _GPIO_PINMASK_1 | _GPIO_PINMASK_2); // LCD RS, EN
+    GPIO_Digital_Output(&GPIOB_BASE,
+        _GPIO_PINMASK_0 | _GPIO_PINMASK_1 | _GPIO_PINMASK_10 | _GPIO_PINMASK_11); // LCD D4–D7
+
+    Delay_ms(200);  // Startup delay
+
+    // LCD Initialization
+    Lcd_Init();
+    Lcd_Cmd(_LCD_CLEAR);
+    Lcd_Cmd(_LCD_CURSOR_OFF);
+    Lcd_Out(1, 1, "VISITOR COUNT");
+
+    // Initial sensor states
+    prevIR_IN = 1;
+    prevIR_OUT = 1;
+
+    while(1) {
+        // Read current sensor states
+        unsigned short currIR_IN = IR_IN;
+        unsigned short currIR_OUT = IR_OUT;
+
+        // ENTRY: Detect falling edge (HIGH ? LOW) / lw 0 = increment
+        if (prevIR_IN == 1 && currIR_IN == 0) {
+            count++;
+            Lcd_Chr(1, 14, 'I');
+        }
+
+        // EXIT: Detect falling edge / lw 0 = decrement , check lw el counter 0 wla la
+        if (prevIR_OUT == 1 && currIR_OUT == 0) {
+            if (count > 0) count--;
+            Lcd_Chr(1, 15, 'O');
+        }
+
+        // Update previous states
+        prevIR_IN = currIR_IN;
+        prevIR_OUT = currIR_OUT;
+
+        // Display count
+        Lcd_Out(2, 1, "COUNT:      ");  // Clear previous text
+        ByteToStr(count, txt);
+        Lcd_Out(2, 8, txt);
+
+        // Clear indicators and wait
+        delay_ms(100);
+        Lcd_Chr(1, 14, ' ');
+        Lcd_Chr(1, 15, ' ');
+    }
+}
